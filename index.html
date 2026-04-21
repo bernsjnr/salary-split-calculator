@@ -787,41 +787,35 @@ thBtn.addEventListener('click',()=>applyTheme(document.documentElement.dataset.t
 // ─────────────────────────────────────────────────────────────────
 // NEWS
 // ─────────────────────────────────────────────────────────────────
-const NEWS_SOURCES = [
-  { name:'MoneySavingExpert', url:'https://www.moneysavingexpert.com/feed/' },
-  { name:'Humble Penny',      url:'https://humblepenny.com/feed/' },
-  { name:'Be Clever With Cash', url:'https://becleverwithyourcash.com/feed/' },
-];
-
-async function fetchFeed(source) {
-  const proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(source.url);
-  const res = await fetch(proxy, { signal: AbortSignal.timeout(6000) });
-  const json = await res.json();
-  const doc = new DOMParser().parseFromString(json.contents, 'text/xml');
-  return Array.from(doc.querySelectorAll('item')).slice(0, 3).map(item => ({
-    title:  item.querySelector('title')?.textContent?.trim() || '',
-    link:   item.querySelector('link')?.textContent?.trim() || '#',
-    date:   item.querySelector('pubDate')?.textContent || '',
-    source: source.name,
-  }));
-}
-
 async function loadNews() {
   try {
-    const results = await Promise.allSettled(NEWS_SOURCES.map(fetchFeed));
-    const items = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
+    const [moneyRes, bizRes] = await Promise.all([
+      fetch('https://content.guardianapis.com/money?show-fields=trailText&page-size=5&api-key=test'),
+      fetch('https://content.guardianapis.com/business?show-fields=trailText&page-size=4&api-key=test'),
+    ]);
+    const [moneyData, bizData] = await Promise.all([moneyRes.json(), bizRes.json()]);
+
+    const toItem = (section) => (r) => ({
+      title: r.webTitle,
+      link:  r.webUrl,
+      date:  r.webPublicationDate,
+      source: section,
+    });
+
+    const items = [
+      ...(moneyData.response?.results || []).map(toItem('The Guardian · Money')),
+      ...(bizData.response?.results   || []).map(toItem('The Guardian · Business')),
+    ].sort((a,b) => new Date(b.date) - new Date(a.date));
+
     if (!items.length) throw 0;
 
-    // Sort by date descending
-    items.sort((a,b) => new Date(b.date) - new Date(a.date));
-
     document.getElementById('newsWrap').innerHTML = '<div class="news-list">' +
-      items.slice(0, 8).map(item => {
+      items.map(item => {
         const diff = Math.round((Date.now() - new Date(item.date)) / 60000);
-        const ago  = isNaN(diff) ? '' : diff < 60 ? diff + 'm ago' : Math.round(diff/60) + 'h ago';
+        const ago  = diff < 60 ? diff + 'm ago' : diff < 1440 ? Math.round(diff/60) + 'h ago' : Math.round(diff/1440) + 'd ago';
         return `<a class="n-item" href="${item.link}" target="_blank" rel="noopener noreferrer">
           <span class="n-title">${item.title}</span>
-          <span class="n-meta"><span class="n-source">${item.source}</span>${ago ? '<span>'+ago+'</span>' : ''}</span>
+          <span class="n-meta"><span class="n-source">${item.source}</span><span>${ago}</span></span>
         </a>`;
       }).join('') + '</div>';
   } catch(e) {
