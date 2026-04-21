@@ -572,7 +572,7 @@ function tax(grossMo) {
 // ─────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────
-function £(n)  { return '£'+Math.round(n).toLocaleString('en-GB'); }
+function gbp(n)  { return '£'+Math.round(n).toLocaleString('en-GB'); }
 function healthy(c,pct) {
   if(c.hMin!==undefined && pct<c.hMin) return false;
   if(c.hMax!==undefined && pct>c.hMax) return false;
@@ -628,13 +628,13 @@ function render() {
   const t=tax(mo); const net=t.net;
 
   // Tax row
-  document.getElementById('tPension').textContent=gross?£(t.pension):'£—';
-  document.getElementById('tIT').textContent=gross?£(t.it):'£—';
-  document.getElementById('tNI').textContent=gross?£(t.ni):'£—';
-  document.getElementById('tNet').textContent=gross?£(net):'£—';
+  document.getElementById('tPension').textContent=gross?gbp(t.pension):'£—';
+  document.getElementById('tIT').textContent=gross?gbp(t.it):'£—';
+  document.getElementById('tNI').textContent=gross?gbp(t.ni):'£—';
+  document.getElementById('tNet').textContent=gross?gbp(net):'£—';
 
   // Hero
-  document.getElementById('heroAmt').textContent=£(net);
+  document.getElementById('heroAmt').textContent=gbp(net);
   document.getElementById('hb-savings').style.width=Math.min(100,S.sp.isa+S.sp.emergency)+'%';
   document.getElementById('hb-needs').style.width=Math.min(100,S.sp.needs)+'%';
   document.getElementById('hb-growth').style.width=Math.min(100,S.sp.growth+S.sp.debt)+'%';
@@ -651,9 +651,9 @@ function render() {
     if(fill)  fill.style.width=pct+'%';
     if(thumb) thumb.style.left=pct+'%';
     setNum('p-'+c.id,Math.round(pct),'%');
-    const aEl=document.getElementById('a-'+c.id); if(aEl) aEl.textContent=£(amt);
+    const aEl=document.getElementById('a-'+c.id); if(aEl) aEl.textContent=gbp(amt);
     document.getElementById('row-'+c.id)?.classList.toggle('healthy',healthy(c,pct)&&gross>0);
-    const wAmt=document.getElementById('wa-'+c.id); if(wAmt) wAmt.textContent=£(amt);
+    const wAmt=document.getElementById('wa-'+c.id); if(wAmt) wAmt.textContent=gbp(amt);
     const wMini=document.getElementById('wm-'+c.id); if(wMini) wMini.style.width=pct+'%';
   });
 
@@ -667,9 +667,9 @@ function render() {
   const sPct=S.sp.isa+S.sp.emergency+S.sp.growth;
   const iPct=S.sp.isa+S.sp.growth;
   const lPct=S.sp.needs+S.sp.fun;
-  setNum('cs-val',Math.round(sPct),'%'); document.getElementById('cs-sub').textContent=£(net*sPct/100)+' / month'; ring('ring-s',sPct);
-  setNum('ci-val',Math.round(iPct),'%'); document.getElementById('ci-sub').textContent=£(net*iPct/100)+' / month'; ring('ring-i',iPct);
-  setNum('cl-val',Math.round(lPct),'%'); document.getElementById('cl-sub').textContent=£(net*lPct/100)+' / month'; ring('ring-l',lPct);
+  setNum('cs-val',Math.round(sPct),'%'); document.getElementById('cs-sub').textContent=gbp(net*sPct/100)+' / month'; ring('ring-s',sPct);
+  setNum('ci-val',Math.round(iPct),'%'); document.getElementById('ci-sub').textContent=gbp(net*iPct/100)+' / month'; ring('ring-i',iPct);
+  setNum('cl-val',Math.round(lPct),'%'); document.getElementById('cl-sub').textContent=gbp(net*lPct/100)+' / month'; ring('ring-l',lPct);
 }
 
 // ─────────────────────────────────────────────────────────────────
