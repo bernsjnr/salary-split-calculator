@@ -324,7 +324,7 @@
   <header class="header">
     <div class="header-left">
       <h1>Income Allocator</h1>
-      <p>Week 5 · 6-Bucket Framework</p>
+      <p>Week 5 · Split Your Take-Home</p>
     </div>
     <div class="header-right">
       <button class="pill" id="themeBtn">☀️ Light</button>
@@ -338,7 +338,7 @@
     <!-- SALARY INPUT -->
     <div class="card">
       <div class="salary-top">
-        <span class="card-label" style="margin:0">Income (post-pension)</span>
+        <span class="card-label" style="margin:0">Monthly Take-Home Pay</span>
         <div class="period-toggle">
           <button class="period-btn on" data-p="monthly">Monthly</button>
           <button class="period-btn"    data-p="annual">Annual</button>
@@ -347,23 +347,6 @@
       <div class="salary-input-row">
         <span class="salary-sym">£</span>
         <input type="number" id="salaryInput" placeholder="3,500" min="0" max="9999999">
-      </div>
-      <div class="tax-grid" style="grid-template-columns:repeat(3,1fr)">
-        <div class="tax-item tax-it">
-          <span class="t-lbl">📋 Income Tax</span>
-          <span class="t-val" id="tIT">£—</span>
-          <span class="t-sub">estimated</span>
-        </div>
-        <div class="tax-item tax-ni">
-          <span class="t-lbl">🏥 Nat. Insurance</span>
-          <span class="t-val" id="tNI">£—</span>
-          <span class="t-sub">estimated</span>
-        </div>
-        <div class="tax-item tax-net">
-          <span class="t-lbl">✅ Net Income</span>
-          <span class="t-val" id="tNet">£—</span>
-          <span class="t-sub">to split / mo</span>
-        </div>
       </div>
     </div>
 
@@ -550,19 +533,6 @@ function save() {
   try { localStorage.setItem('ia-v1',JSON.stringify(S)); } catch(e){}
 }
 
-// ─────────────────────────────────────────────────────────────────
-// TAX (simplified UK)
-// ─────────────────────────────────────────────────────────────────
-function tax(grossMo) {
-  if (!grossMo || grossMo<=0) return {it:0,ni:0,net:0};
-  const g=grossMo*12;
-  const PA=12570,BR=50270,HR=125140;
-  let it=0;
-  if(g>PA){ it+=Math.min(g-PA,BR-PA)*.2; if(g>BR){it+=Math.min(g-BR,HR-BR)*.4; if(g>HR)it+=(g-HR)*.45;} }
-  let ni=0;
-  if(g>PA){ ni+=Math.min(g-PA,BR-PA)*.08; if(g>BR)ni+=(g-BR)*.02; }
-  return { it:it/12, ni:ni/12, net:(g-it-ni)/12 };
-}
 
 // ─────────────────────────────────────────────────────────────────
 // HELPERS
@@ -619,13 +589,7 @@ function initDrag(catId,track) {
 // ─────────────────────────────────────────────────────────────────
 function render() {
   const gross=parseFloat(document.getElementById('salaryInput').value)||0;
-  const mo=S.period==='annual'?gross/12:gross;
-  const t=tax(mo); const net=t.net;
-
-  // Tax row
-  document.getElementById('tIT').textContent=gross?gbp(t.it):'£—';
-  document.getElementById('tNI').textContent=gross?gbp(t.ni):'£—';
-  document.getElementById('tNet').textContent=gross?gbp(net):'£—';
+  const net=S.period==='annual'?gross/12:gross;
 
   // Hero
   document.getElementById('heroAmt').textContent=gbp(net);
