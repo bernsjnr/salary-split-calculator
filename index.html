@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Income Allocator — Salary Split</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gantari:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    /* ── RESET ───────────────────────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ── VARIABLES ───────────────────────────────────────────────── */
+    :root {
+      --font: 'Gantari', -apple-system, sans-serif;
+      --bg:         #F0EDE6;
+      --surface:    #FFFFFF;
+      --surface-2:  #ECEAE3;
+      --border:     rgba(0,0,0,0.09);
+      --text:       #1A1A1A;
+      --text-muted: rgba(0,0,0,0.45);
+      --text-faint: rgba(0,0,0,0.22);
+      --shadow:     0 2px 16px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.05);
+      --c-emergency: #F0813A;
+      --c-debt:      #E85D4A;
+      --c-isa:       #7B68EE;
+      --c-needs:     #5E9E2E;
+      --c-fun:       #D8A241;
+      --c-giving:    #3DAA96;
+      --c-growth:    #4A7BEE;
+      --c-pension:   #C8A020;
+      --card-olive:  #2D3A10;
+      --card-purple: #1C1440;
+      --card-orange: #3A1900;
+      --xp-gold: #E8B800;
+      --radius: 20px;
+    }
+    [data-theme="dark"] {
+      --bg:         #080808;
+      --surface:    #121212;
+      --surface-2:  #1C1C1C;
+      --border:     rgba(255,255,255,0.07);
+      --text:       #F2F2F2;
+      --text-muted: rgba(255,255,255,0.45);
+      --text-faint: rgba(255,255,255,0.18);
+      --shadow:     0 2px 24px rgba(0,0,0,0.5);
+    }
+
+    /* ── PAGE ────────────────────────────────────────────────────── */
+    html, body { min-height: 100vh; font-family: var(--font); background: var(--bg); color: var(--text); }
+
+    .page {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      grid-template-rows: auto 1fr;
+      gap: 0 24px;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 24px 48px;
+    }
+
+    .header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding-bottom: 28px; }
+
+    .header-left h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; }
+    .header-left p  { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-top: 2px; }
+
+    .header-right { display: flex; gap: 8px; align-items: center; }
+
+    /* ── PILL BUTTON ─────────────────────────────────────────────── */
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 18px; border-radius: 99px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text-muted); font-family: var(--font);
+      font-size: 12px; font-weight: 600; letter-spacing: 0.03em;
+      cursor: pointer; transition: all 0.18s; text-decoration: none;
+    }
+    .pill:hover { background: var(--surface-2); color: var(--text); }
+    .pill.on    { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+    /* ── CARD BASE ───────────────────────────────────────────────── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px;
+    }
+    .card-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px;
+    }
+
+    /* ── MAIN COLUMN ─────────────────────────────────────────────── */
+    .main-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+    /* ── SALARY CARD ─────────────────────────────────────────────── */
+    .salary-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+
+    .period-toggle { display: flex; gap: 3px; background: var(--surface-2); border-radius: 99px; padding: 3px; }
+    .period-btn {
+      padding: 5px 14px; border-radius: 99px; border: none;
+      background: transparent; color: var(--text-muted);
+      font-family: var(--font); font-size: 11px; font-weight: 700;
+      cursor: pointer; transition: all 0.18s; letter-spacing: 0.04em;
+    }
+    .period-btn.on { background: var(--text); color: var(--bg); }
+
+    .salary-input-row { display: flex; align-items: baseline; gap: 2px; margin-bottom: 22px; }
+    .salary-sym { font-size: clamp(2.2rem,5vw,3.8rem); font-weight: 300; color: var(--text-muted); line-height: 1; }
+    #salaryInput {
+      font-family: var(--font); font-size: clamp(2.2rem,7vw,4.8rem);
+      font-weight: 800; letter-spacing: -0.04em; color: var(--text);
+      background: transparent; border: none; outline: none; width: 100%; min-width: 0; line-height: 1;
+    }
+    #salaryInput::placeholder { color: var(--text-faint); }
+    #salaryInput::-webkit-inner-spin-button, #salaryInput::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+    .tax-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+    .tax-item { display: flex; flex-direction: column; gap: 3px; }
+    .tax-item .t-lbl { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); }
+    .tax-item .t-val { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+    .tax-item .t-sub { font-size: 10px; color: var(--text-faint); }
+    .tax-pension .t-val  { color: var(--c-pension); }
+    .tax-it     .t-val   { color: var(--c-debt); }
+    .tax-ni     .t-val   { color: var(--c-emergency); }
+    .tax-net    .t-val   { color: var(--c-needs); }
+
+    /* ── HERO ────────────────────────────────────────────────────── */
+    .hero-card { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .hero-left { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 0; }
+    .hero-bar-row { display: flex; align-items: center; gap: 10px; }
+    .hero-bar-name { font-size: 11px; color: var(--text-muted); width: 68px; flex-shrink: 0; }
+    .hero-track { flex: 1; height: 5px; background: var(--surface-2); border-radius: 99px; overflow: hidden; max-width: 220px; }
+    .hero-fill  { height: 100%; border-radius: 99px; transition: width 0.3s cubic-bezier(.16,1,.3,1); }
+
+    .hero-right { text-align: right; flex-shrink: 0; }
+    .hero-net-amt { font-size: clamp(2rem,5vw,3.6rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: var(--c-needs); }
+    .hero-net-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .health-badge {
+      display: inline-flex; align-items: center; gap: 5px; margin-top: 10px;
+      padding: 5px 13px; border-radius: 99px; font-size: 11px; font-weight: 700;
+      transition: all 0.3s;
+    }
+    .health-badge.good   { background: rgba(94,158,46,.14); color: var(--c-needs);   border: 1px solid rgba(94,158,46,.3); }
+    .health-badge.warn   { background: rgba(216,162,65,.14); color: var(--c-fun);    border: 1px solid rgba(216,162,65,.3); }
+    .health-badge.idle   { background: var(--surface-2); color: var(--text-muted);    border: 1px solid var(--border); }
+
+    /* ── BARS CARD ───────────────────────────────────────────────── */
+    .bars-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .bars-total {
+      font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 99px;
+      background: rgba(94,158,46,.12); color: var(--c-needs); border: 1px solid rgba(94,158,46,.25);
+      transition: all 0.2s;
+    }
+    .bars-total.bad { background: rgba(232,93,74,.12); color: var(--c-debt); border-color: rgba(232,93,74,.25); }
+
+    .bar-rows { display: flex; flex-direction: column; gap: 18px; }
+
+    .bar-row { display: flex; flex-direction: column; gap: 8px; }
+    .bar-meta { display: flex; align-items: center; justify-content: space-between; }
+    .bar-id   { display: flex; align-items: center; gap: 10px; }
+    .bar-icon-wrap { font-size: 16px; line-height: 1; }
+    .bar-name { font-size: 13px; font-weight: 700; }
+    .bar-hint { font-size: 10px; color: var(--text-faint); margin-top: 1px; }
+    .bar-vals { display: flex; align-items: center; gap: 10px; }
+    .bar-pct  { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 42px; text-align: right; }
+    .bar-amt  { font-size: 12px; font-weight: 500; color: var(--text-muted); min-width: 66px; text-align: right; font-variant-numeric: tabular-nums; }
+
+    .bar-track {
+      position: relative; width: 100%; height: 9px;
+      background: var(--surface-2); border-radius: 99px;
+      cursor: ew-resize; user-select: none; touch-action: none;
+    }
+    .bar-fill  { position: absolute; top: 0; left: 0; height: 100%; border-radius: 99px; pointer-events: none; transition: width 0.04s linear; }
+    .bar-thumb {
+      position: absolute; top: 50%; transform: translate(-50%,-50%);
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--surface); border: 3px solid currentColor;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      pointer-events: none; transition: transform 0.12s cubic-bezier(.16,1,.3,1);
+    }
+    .bar-track.drag .bar-thumb { transform: translate(-50%,-50%) scale(1.35); }
+
+    .bar-row.healthy .bar-fill { animation: hglow 3s ease-in-out infinite; }
+    @keyframes hglow { 0%,100%{filter:brightness(1);} 50%{filter:brightness(1.2) saturate(1.2);} }
+
+    /* ── STAT CARDS ──────────────────────────────────────────────── */
+    .cards-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+
+    .scard {
+      border-radius: var(--radius); padding: 20px;
+      display: flex; flex-direction: column; gap: 6px;
+      min-height: 134px; position: relative; overflow: hidden;
+    }
+    .scard.olive  { background: var(--card-olive);  border: 1px solid rgba(94,158,46,.2); }
+    .scard.purple { background: var(--card-purple); border: 1px solid rgba(123,104,238,.2); }
+    .scard.orange { background: var(--card-orange); border: 1px solid rgba(232,93,74,.2); }
+
+    .scard-eye  { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.45); }
+    .scard-val  { font-size: clamp(1.6rem,3vw,2.2rem); font-weight: 800; letter-spacing: -0.03em; color: #fff; line-height: 1; }
+    .scard-sub  { font-size: 11px; color: rgba(255,255,255,.45); }
+
+    .ring-wrap { position: absolute; top: 14px; right: 14px; }
+    .ring-bg { stroke: rgba(255,255,255,.1); fill: none; }
+    .ring-fg { fill: none; stroke-linecap: round; transition: stroke-dashoffset 0.5s cubic-bezier(.16,1,.3,1); }
+
+    /* ── WALLET ──────────────────────────────────────────────────── */
+    .wallet-list { list-style: none; }
+    .w-item {
+      display: grid; grid-template-columns: 10px 1fr minmax(40px,80px) auto;
+      align-items: center; gap: 12px; padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .w-item:last-child { border-bottom: none; }
+    .w-dot   { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .w-name  { font-size: 14px; font-weight: 600; }
+    .w-mini  { height: 3px; border-radius: 99px; opacity: .35; transition: width .3s cubic-bezier(.16,1,.3,1); max-width: 100%; }
+    .w-amt   { font-size: 14px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* ── GAMIFICATION ────────────────────────────────────────────── */
+    .game-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    .streak-card { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
+    .s-flame { font-size: 30px; }
+    .s-count { font-size: 2.8rem; font-weight: 800; letter-spacing: -0.04em; color: #FF6B35; line-height: 1; }
+    .s-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); }
+    .s-sub   { font-size: 10px; color: var(--text-faint); margin-bottom: 4px; }
+
+    .xp-card { display: flex; flex-direction: column; gap: 9px; }
+    .lv-badge {
+      display: inline-flex; align-items: center; padding: 4px 12px;
+      border-radius: 99px; font-size: 11px; font-weight: 800;
+      background: rgba(232,184,0,.12); color: var(--xp-gold);
+      border: 1px solid rgba(232,184,0,.3); width: fit-content;
+    }
+    .lv-title { font-size: 15px; font-weight: 700; }
+    .xp-track { height: 6px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+    .xp-fill  { height: 100%; background: linear-gradient(90deg,var(--xp-gold),#FFA500); border-radius: 99px; transition: width .5s cubic-bezier(.16,1,.3,1); }
+    .xp-lbl   { font-size: 11px; color: var(--text-muted); }
+
+    .badges-card .card-label { margin-bottom: 12px; }
+    .badges-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 9px; }
+    .b-chip {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      padding: 13px 8px; border-radius: 13px; text-align: center;
+      background: var(--surface-2); border: 1px solid var(--border);
+      transition: all 0.25s;
+    }
+    .b-chip.locked   { filter: grayscale(1); opacity: .28; }
+    .b-chip.unlocked { border-color: rgba(232,184,0,.4); background: rgba(232,184,0,.06); }
+    .b-icon { font-size: 20px; }
+    .b-name { font-size: 10px; font-weight: 600; color: var(--text-muted); line-height: 1.3; }
+
+    @keyframes badgePop { 0%{transform:scale(.5);opacity:0;} 65%{transform:scale(1.18);} 100%{transform:scale(1);opacity:1;} }
+    .b-chip.popping { animation: badgePop .55s cubic-bezier(.16,1,.3,1) forwards; }
+
+    /* ── ACTIONS ─────────────────────────────────────────────────── */
+    .actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ── NEWS SIDEBAR ────────────────────────────────────────────── */
+    .side-col  { display: flex; flex-direction: column; gap: 16px; }
+    .news-card { padding: 22px; position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto; }
+    .news-card::-webkit-scrollbar { width: 4px; }
+    .news-card::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+    .news-top  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .news-live { width: 7px; height: 7px; border-radius: 50%; background: #4CAF50; animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(.8);} }
+
+    .news-list { display: flex; flex-direction: column; }
+    .n-item    { display: flex; flex-direction: column; gap: 5px; padding: 13px 0; border-bottom: 1px solid var(--border); cursor: pointer; text-decoration: none; }
+    .n-item:first-child { padding-top: 0; }
+    .n-item:last-child  { border-bottom: none; padding-bottom: 0; }
+    .n-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.4; transition: color .18s; }
+    .n-item:hover .n-title { color: var(--c-isa); }
+    .n-meta   { display: flex; gap: 8px; font-size: 10px; color: var(--text-faint); }
+    .n-source { font-weight: 700; color: var(--text-muted); }
+
+    .skel { display: flex; flex-direction: column; gap: 10px; }
+    .skel-line { height: 11px; border-radius: 6px; background: var(--surface-2); animation: shimmer 1.4s ease-in-out infinite; }
+    @keyframes shimmer { 0%,100%{opacity:.4;} 50%{opacity:.9;} }
+
+    /* ── TOAST ───────────────────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 32px; left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: var(--xp-gold); color: #000;
+      padding: 12px 22px; border-radius: 99px;
+      font-size: 13px; font-weight: 700;
+      opacity: 0; transition: opacity .3s, transform .4s cubic-bezier(.16,1,.3,1);
+      z-index: 9999; pointer-events: none; white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── NUM POP ─────────────────────────────────────────────────── */
+    @keyframes np { 0%{transform:scale(1);} 45%{transform:scale(1.14);} 100%{transform:scale(1);} }
+    .np { animation: np .2s cubic-bezier(.16,1,.3,1); }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────────── */
+    @media (max-width: 920px) {
+      .page { grid-template-columns: 1fr; gap: 0; }
+      .header { grid-column: 1; }
+      .side-col { order: 10; margin-top: 18px; }
+      .news-card { position: static; max-height: none; }
+    }
+    @media (max-width: 640px) {
+      .page { padding: 18px 14px 40px; }
+      .cards-row { grid-template-columns: 1fr 1fr; }
+      .tax-grid   { grid-template-columns: 1fr 1fr; }
+      .hero-card  { flex-direction: column; align-items: flex-start; gap: 14px; }
+      .hero-right { text-align: left; }
+    }
+    @media (max-width: 420px) {
+      .cards-row    { grid-template-columns: 1fr; }
+      .game-row     { grid-template-columns: 1fr; }
+      .badges-grid  { grid-template-columns: repeat(4,1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <h1>Income Allocator</h1>
+      <p>Week 5 · 7-Bucket Framework</p>
+    </div>
+    <div class="header-right">
+      <button class="pill" id="themeBtn">☀️ Light</button>
+      <button class="pill" id="resetBtn">↺ Reset</button>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <div class="main-col">
+
+    <!-- SALARY INPUT -->
+    <div class="card">
+      <div class="salary-top">
+        <span class="card-label" style="margin:0">Gross Monthly Salary</span>
+        <div class="period-toggle">
+          <button class="period-btn on" data-p="monthly">Monthly</button>
+          <button class="period-btn"    data-p="annual">Annual</button>
+        </div>
+      </div>
+      <div class="salary-input-row">
+        <span class="salary-sym">£</span>
+        <input type="number" id="salaryInput" placeholder="3,500" min="0" max="9999999">
+      </div>
+      <div class="tax-grid">
+        <div class="tax-item tax-pension">
+          <span class="t-lbl">🏦 Pension (10%)</span>
+          <span class="t-val" id="tPension">£—</span>
+          <span class="t-sub">of gross / mo</span>
+        </div>
+        <div class="tax-item tax-it">
+          <span class="t-lbl">📋 Income Tax</span>
+          <span class="t-val" id="tIT">£—</span>
+          <span class="t-sub">estimated</span>
+        </div>
+        <div class="tax-item tax-ni">
+          <span class="t-lbl">🏥 Nat. Insurance</span>
+          <span class="t-val" id="tNI">£—</span>
+          <span class="t-sub">estimated</span>
+        </div>
+        <div class="tax-item tax-net">
+          <span class="t-lbl">✅ Net Income</span>
+          <span class="t-val" id="tNet">£—</span>
+          <span class="t-sub">to split / mo</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- HERO -->
+    <div class="card hero-card">
+      <div class="hero-left">
+        <div class="card-label" style="margin:0">Your Split</div>
+        <div id="heroBars">
+          <div class="hero-bar-row">
+            <span class="hero-bar-name">Savings</span>
+            <div class="hero-track"><div class="hero-fill" id="hb-savings" style="background:var(--c-isa)"></div></div>
+          </div>
+          <div class="hero-bar-row">
+            <span class="hero-bar-name">Essentials</span>
+            <div class="hero-track"><div class="hero-fill" id="hb-needs"   style="background:var(--c-needs)"></div></div>
+          </div>
+          <div class="hero-bar-row">
+            <span class="hero-bar-name">Growth</span>
+            <div class="hero-track"><div class="hero-fill" id="hb-growth"  style="background:var(--c-growth)"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-right">
+        <div class="hero-net-amt" id="heroAmt">£0</div>
+        <div class="hero-net-sub">net / month</div>
+        <div class="health-badge idle" id="healthBadge">⚡ Enter your salary</div>
+      </div>
+    </div>
+
+    <!-- BARS -->
+    <div class="card">
+      <div class="bars-header">
+        <span class="card-label" style="margin:0">7 Bucket Split</span>
+        <span class="bars-total" id="barsTotal">100% ✓</span>
+      </div>
+      <div class="bar-rows" id="barRows"></div>
+    </div>
+
+    <!-- STAT CARDS -->
+    <div class="cards-row">
+      <div class="scard olive">
+        <span class="scard-eye">Savings Rate</span>
+        <div class="scard-val" id="cs-val">0%</div>
+        <div class="scard-sub" id="cs-sub">£0 / month</div>
+        <div class="ring-wrap">
+          <svg width="50" height="50" viewBox="0 0 50 50">
+            <circle class="ring-bg" cx="25" cy="25" r="20" stroke-width="4"/>
+            <circle class="ring-fg" id="ring-s" cx="25" cy="25" r="20" stroke-width="4"
+              stroke="var(--c-needs)" stroke-dasharray="125.7" stroke-dashoffset="125.7"
+              transform="rotate(-90 25 25)"/>
+          </svg>
+        </div>
+      </div>
+      <div class="scard purple">
+        <span class="scard-eye">Investment Power</span>
+        <div class="scard-val" id="ci-val">0%</div>
+        <div class="scard-sub" id="ci-sub">£0 / month</div>
+        <div class="ring-wrap">
+          <svg width="50" height="50" viewBox="0 0 50 50">
+            <circle class="ring-bg" cx="25" cy="25" r="20" stroke-width="4"/>
+            <circle class="ring-fg" id="ring-i" cx="25" cy="25" r="20" stroke-width="4"
+              stroke="var(--c-isa)" stroke-dasharray="125.7" stroke-dashoffset="125.7"
+              transform="rotate(-90 25 25)"/>
+          </svg>
+        </div>
+      </div>
+      <div class="scard orange">
+        <span class="scard-eye">Living Costs</span>
+        <div class="scard-val" id="cl-val">0%</div>
+        <div class="scard-sub" id="cl-sub">£0 / month</div>
+        <div class="ring-wrap">
+          <svg width="50" height="50" viewBox="0 0 50 50">
+            <circle class="ring-bg" cx="25" cy="25" r="20" stroke-width="4"/>
+            <circle class="ring-fg" id="ring-l" cx="25" cy="25" r="20" stroke-width="4"
+              stroke="var(--c-emergency)" stroke-dasharray="125.7" stroke-dashoffset="125.7"
+              transform="rotate(-90 25 25)"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- WALLET -->
+    <div class="card">
+      <div class="card-label">Monthly Breakdown</div>
+      <ul class="wallet-list" id="walletList"></ul>
+    </div>
+
+    <!-- GAMIFICATION -->
+    <div class="game-row">
+      <div class="card streak-card">
+        <span class="s-flame">🔥</span>
+        <span class="s-count" id="streakN">0</span>
+        <span class="s-label">Day Streak</span>
+        <span class="s-sub">Check in daily to keep it alive</span>
+        <button class="pill" id="checkInBtn" style="margin-top:6px">Check In Today</button>
+      </div>
+      <div class="card xp-card">
+        <div class="lv-badge" id="lvBadge">Lv. 1</div>
+        <div class="lv-title" id="lvTitle">Finance Apprentice</div>
+        <div class="xp-track"><div class="xp-fill" id="xpFill" style="width:0%"></div></div>
+        <div class="xp-lbl"><span id="xpNow">0</span> / <span id="xpMax">200</span> XP</div>
+      </div>
+      <div class="card badges-card" style="grid-column:1/-1">
+        <div class="card-label">Achievements</div>
+        <div class="badges-grid" id="badgesGrid"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="pill" id="resetBtn2">↺ Reset to Defaults</button>
+    </div>
+
+  </div><!-- /main-col -->
+
+  <!-- SIDEBAR -->
+  <div class="side-col">
+    <div class="card news-card">
+      <div class="news-top">
+        <span class="card-label" style="margin:0">Finance News</span>
+        <span class="news-live"></span>
+      </div>
+      <div id="newsWrap">
+        <div class="skel">
+          <div class="skel-line" style="width:100%"></div><div class="skel-line" style="width:75%"></div>
+          <div class="skel-line" style="width:100%"></div><div class="skel-line" style="width:60%"></div>
+          <div class="skel-line" style="width:100%"></div><div class="skel-line" style="width:80%"></div>
+          <div class="skel-line" style="width:100%"></div><div class="skel-line" style="width:70%"></div>
+          <div class="skel-line" style="width:90%"></div> <div class="skel-line" style="width:55%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────────────────────────
+const CATS = [
+  { id:'emergency', icon:'🆘', name:'Emergency Fund',    hint:'≥5% recommended',         color:'#F0813A', def:5,  hMin:5  },
+  { id:'debt',      icon:'💳', name:'Debt Pay-off',      hint:'≥10% if you have debt',    color:'#E85D4A', def:10, hMin:10 },
+  { id:'isa',       icon:'📈', name:'ISA & Investments', hint:'≥15% recommended',         color:'#7B68EE', def:15, hMin:15 },
+  { id:'needs',     icon:'🏠', name:'Needs',             hint:'≤50% (housing+essentials)',color:'#5E9E2E', def:50, hMax:50 },
+  { id:'fun',       icon:'🎉', name:'Fun & Wants',       hint:'≤5% recommended',          color:'#D8A241', def:5,  hMax:5  },
+  { id:'giving',    icon:'🤝', name:'Giving',            hint:'≥10% recommended',         color:'#3DAA96', def:10, hMin:10 },
+  { id:'growth',    icon:'🚀', name:'Growth & Risk',     hint:'≥5% recommended',          color:'#4A7BEE', def:5,  hMin:5  },
+];
+
+const LEVELS = [
+  { lv:1, title:'Finance Apprentice',  xp:0    },
+  { lv:2, title:'Budget Builder',       xp:200  },
+  { lv:3, title:'Money Mindful',        xp:500  },
+  { lv:4, title:'Wealth Cultivator',    xp:1000 },
+  { lv:5, title:'Capital Commander',    xp:2000 },
+];
+
+const BADGES = [
+  { id:'first',     icon:'🎯', name:'First Split',   cond:s => s.g.totalSplits >= 1           },
+  { id:'saver',     icon:'💰', name:'Super Saver',    cond:s => s.sp.isa >= 20                 },
+  { id:'investor',  icon:'📈', name:'Investor',       cond:s => s.sp.isa >= 15 && s.sp.growth >= 5 },
+  { id:'balanced',  icon:'⚖️', name:'Balanced',       cond:s => CATS.every(c => healthy(c,s.sp[c.id])) },
+  { id:'fighter',   icon:'🛡️', name:'Debt Fighter',   cond:s => s.sp.debt >= 15               },
+  { id:'minimal',   icon:'✂️', name:'Minimalist',     cond:s => s.sp.fun <= 5                  },
+  { id:'week',      icon:'🔥', name:'Week Warrior',   cond:s => s.g.streak >= 7               },
+  { id:'month',     icon:'🏆', name:'Monthly Master', cond:s => s.g.streak >= 30              },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────
+const DEF = {
+  salary: 3500, period: 'monthly',
+  sp: Object.fromEntries(CATS.map(c=>[c.id,c.def])),
+  g: { xp:0, lv:1, streak:0, lastCI:null, badges:[], totalSplits:0 }
+};
+
+let S = JSON.parse(JSON.stringify(DEF));
+
+function load() {
+  try { const d=localStorage.getItem('ia-v1'); if(d) S={...DEF,...JSON.parse(d)}; } catch(e){}
+}
+function save() {
+  try { localStorage.setItem('ia-v1',JSON.stringify(S)); } catch(e){}
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TAX (simplified UK)
+// ─────────────────────────────────────────────────────────────────
+function tax(grossMo) {
+  if (!grossMo || grossMo<=0) return {pension:0,it:0,ni:0,net:0};
+  const g=grossMo*12, pen=g*.1, tx=g-pen;
+  const PA=12570,BR=50270,HR=125140;
+  let it=0;
+  if(tx>PA){ it+=Math.min(tx-PA,BR-PA)*.2; if(tx>BR){it+=Math.min(tx-BR,HR-BR)*.4; if(tx>HR)it+=(tx-HR)*.45;} }
+  let ni=0;
+  if(tx>PA){ ni+=Math.min(tx-PA,BR-PA)*.08; if(tx>BR)ni+=(tx-BR)*.02; }
+  return { pension:pen/12, it:it/12, ni:ni/12, net:(tx-it-ni)/12 };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────
+function £(n)  { return '£'+Math.round(n).toLocaleString('en-GB'); }
+function healthy(c,pct) {
+  if(c.hMin!==undefined && pct<c.hMin) return false;
+  if(c.hMax!==undefined && pct>c.hMax) return false;
+  return true;
+}
+function setNum(id,val,sfx='') {
+  const el=document.getElementById(id); if(!el) return;
+  const s=val+sfx; if(el.dataset.v===s) return;
+  el.dataset.v=s; el.textContent=s;
+  el.classList.remove('np'); void el.offsetWidth; el.classList.add('np');
+}
+function ring(id,pct) {
+  const el=document.getElementById(id); if(!el) return;
+  el.style.strokeDashoffset = 125.7*(1-Math.min(pct,100)/100);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// DRAG
+// ─────────────────────────────────────────────────────────────────
+let xpTime=0;
+
+function applyDrag(id,raw) {
+  const clamped=Math.max(1,Math.min(raw,100-(CATS.length-1)));
+  const others=CATS.map(c=>c.id).filter(i=>i!==id);
+  const oSum=others.reduce((a,i)=>a+S.sp[i],0);
+  const delta=clamped-S.sp[id];
+  others.forEach(i=>{ S.sp[i]=Math.max(1,S.sp[i]-(oSum>0?S.sp[i]/oSum:1/others.length)*delta); });
+  S.sp[id]=clamped;
+  const sum=Object.values(S.sp).reduce((a,b)=>a+b,0);
+  const biggest=others.reduce((a,b)=>S.sp[a]>S.sp[b]?a:b);
+  S.sp[biggest]=Math.max(1,S.sp[biggest]+(100-sum));
+  render();
+}
+
+function initDrag(catId,track) {
+  track.addEventListener('pointerdown',e=>{
+    track.setPointerCapture(e.pointerId);
+    track.classList.add('drag');
+    const rect=track.getBoundingClientRect(), sx=e.clientX, sp=S.sp[catId];
+    function mv(ev){ applyDrag(catId,sp+(ev.clientX-sx)/rect.width*100); const now=Date.now(); if(now-xpTime>1000){xpTime=now;S.g.totalSplits++;xp(5);} }
+    function up()  { track.classList.remove('drag'); track.removeEventListener('pointermove',mv); track.removeEventListener('pointerup',up); checkBadges(); save(); }
+    track.addEventListener('pointermove',mv);
+    track.addEventListener('pointerup',up);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────────────────────────
+function render() {
+  const gross=parseFloat(document.getElementById('salaryInput').value)||0;
+  const mo=S.period==='annual'?gross/12:gross;
+  const t=tax(mo); const net=t.net;
+
+  // Tax row
+  document.getElementById('tPension').textContent=gross?£(t.pension):'£—';
+  document.getElementById('tIT').textContent=gross?£(t.it):'£—';
+  document.getElementById('tNI').textContent=gross?£(t.ni):'£—';
+  document.getElementById('tNet').textContent=gross?£(net):'£—';
+
+  // Hero
+  document.getElementById('heroAmt').textContent=£(net);
+  document.getElementById('hb-savings').style.width=Math.min(100,S.sp.isa+S.sp.emergency)+'%';
+  document.getElementById('hb-needs').style.width=Math.min(100,S.sp.needs)+'%';
+  document.getElementById('hb-growth').style.width=Math.min(100,S.sp.growth+S.sp.debt)+'%';
+  const allH=CATS.every(c=>healthy(c,S.sp[c.id]));
+  const hb=document.getElementById('healthBadge');
+  hb.className='health-badge '+(gross?(allH?'good':'warn'):'idle');
+  hb.textContent=gross?(allH?'✅ Optimal split':'💡 Adjust for balance'):'⚡ Enter your salary';
+
+  // Bars + wallet
+  CATS.forEach(c=>{
+    const pct=S.sp[c.id], amt=net*pct/100;
+    const fill=document.getElementById('f-'+c.id);
+    const thumb=document.getElementById('th-'+c.id);
+    if(fill)  fill.style.width=pct+'%';
+    if(thumb) thumb.style.left=pct+'%';
+    setNum('p-'+c.id,Math.round(pct),'%');
+    const aEl=document.getElementById('a-'+c.id); if(aEl) aEl.textContent=£(amt);
+    document.getElementById('row-'+c.id)?.classList.toggle('healthy',healthy(c,pct)&&gross>0);
+    const wAmt=document.getElementById('wa-'+c.id); if(wAmt) wAmt.textContent=£(amt);
+    const wMini=document.getElementById('wm-'+c.id); if(wMini) wMini.style.width=pct+'%';
+  });
+
+  // Total badge
+  const tot=Math.round(Object.values(S.sp).reduce((a,b)=>a+b,0));
+  const tb=document.getElementById('barsTotal');
+  tb.textContent=tot===100?'100% ✓':tot+'%';
+  tb.classList.toggle('bad',tot!==100);
+
+  // Stat cards
+  const sPct=S.sp.isa+S.sp.emergency+S.sp.growth;
+  const iPct=S.sp.isa+S.sp.growth;
+  const lPct=S.sp.needs+S.sp.fun;
+  setNum('cs-val',Math.round(sPct),'%'); document.getElementById('cs-sub').textContent=£(net*sPct/100)+' / month'; ring('ring-s',sPct);
+  setNum('ci-val',Math.round(iPct),'%'); document.getElementById('ci-sub').textContent=£(net*iPct/100)+' / month'; ring('ring-i',iPct);
+  setNum('cl-val',Math.round(lPct),'%'); document.getElementById('cl-sub').textContent=£(net*lPct/100)+' / month'; ring('ring-l',lPct);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// GAMIFICATION
+// ─────────────────────────────────────────────────────────────────
+function xp(n) {
+  S.g.xp+=n;
+  const nl=[...LEVELS].reverse().find(l=>S.g.xp>=l.xp);
+  if(nl&&nl.lv>S.g.lv){ S.g.lv=nl.lv; toast('🏆 Level Up! '+nl.title); }
+  renderGame(); save();
+}
+
+function checkBadges() {
+  BADGES.forEach(b=>{
+    if(!S.g.badges.includes(b.id)&&b.cond(S)){
+      S.g.badges.push(b.id); xp(50);
+      const el=document.querySelector(`[data-b="${b.id}"]`);
+      if(el){ el.classList.remove('locked'); el.classList.add('unlocked','popping'); el.addEventListener('animationend',()=>el.classList.remove('popping'),{once:true}); }
+    }
+  });
+  BADGES.forEach(b=>{ const el=document.querySelector(`[data-b="${b.id}"]`); if(el){ el.classList.toggle('locked',!S.g.badges.includes(b.id)); el.classList.toggle('unlocked',S.g.badges.includes(b.id)); } });
+}
+
+function renderGame() {
+  document.getElementById('streakN').textContent=S.g.streak;
+  const today=new Date().toISOString().split('T')[0];
+  const ci=S.g.lastCI===today;
+  const btn=document.getElementById('checkInBtn');
+  btn.textContent=ci?'✅ Checked In':'Check In Today';
+  btn.classList.toggle('on',ci);
+  const lv=LEVELS.find(l=>l.lv===S.g.lv)||LEVELS[0];
+  const nx=LEVELS.find(l=>l.lv===S.g.lv+1);
+  const pct=nx?Math.min(100,(S.g.xp-lv.xp)/(nx.xp-lv.xp)*100):100;
+  document.getElementById('lvBadge').textContent='Lv. '+S.g.lv;
+  document.getElementById('lvTitle').textContent=lv.title;
+  document.getElementById('xpFill').style.width=pct+'%';
+  document.getElementById('xpNow').textContent=S.g.xp;
+  document.getElementById('xpMax').textContent=nx?nx.xp:'MAX';
+}
+
+function toast(msg) {
+  const t=document.createElement('div'); t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),400); },3000);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// BUILD DOM
+// ─────────────────────────────────────────────────────────────────
+function buildBars() {
+  const c=document.getElementById('barRows'); c.innerHTML='';
+  CATS.forEach(cat=>{
+    const d=document.createElement('div'); d.className='bar-row'; d.id='row-'+cat.id;
+    d.innerHTML=`
+      <div class="bar-meta">
+        <div class="bar-id">
+          <span class="bar-icon-wrap">${cat.icon}</span>
+          <div><div class="bar-name">${cat.name}</div><div class="bar-hint">${cat.hint}</div></div>
+        </div>
+        <div class="bar-vals">
+          <span class="bar-pct" id="p-${cat.id}" style="color:${cat.color}">${cat.def}%</span>
+          <span class="bar-amt" id="a-${cat.id}">£0</span>
+        </div>
+      </div>
+      <div class="bar-track" id="t-${cat.id}">
+        <div class="bar-fill"  id="f-${cat.id}"  style="width:${cat.def}%;background:${cat.color}"></div>
+        <div class="bar-thumb" id="th-${cat.id}" style="left:${cat.def}%;color:${cat.color}"></div>
+      </div>`;
+    c.appendChild(d);
+    initDrag(cat.id,document.getElementById('t-'+cat.id));
+  });
+}
+
+function buildWallet() {
+  const l=document.getElementById('walletList'); l.innerHTML='';
+  CATS.forEach(cat=>{
+    const li=document.createElement('li'); li.className='w-item';
+    li.innerHTML=`
+      <span class="w-dot" style="background:${cat.color}"></span>
+      <span class="w-name">${cat.icon} ${cat.name}</span>
+      <div class="w-mini" id="wm-${cat.id}" style="background:${cat.color};width:${cat.def}%"></div>
+      <span class="w-amt" id="wa-${cat.id}">£0</span>`;
+    l.appendChild(li);
+  });
+}
+
+function buildBadges() {
+  const g=document.getElementById('badgesGrid'); g.innerHTML='';
+  BADGES.forEach(b=>{
+    const d=document.createElement('div'); d.className='b-chip locked'; d.dataset.b=b.id; d.title=b.name;
+    d.innerHTML=`<span class="b-icon">${b.icon}</span><span class="b-name">${b.name}</span>`;
+    g.appendChild(d);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// STREAK / CHECK-IN
+// ─────────────────────────────────────────────────────────────────
+function initStreak() {
+  const today=new Date().toISOString().split('T')[0];
+  const yest=new Date(Date.now()-86400000).toISOString().split('T')[0];
+  if(S.g.lastCI&&S.g.lastCI!==today&&S.g.lastCI!==yest){ S.g.streak=0; save(); }
+}
+
+document.getElementById('checkInBtn').addEventListener('click',()=>{
+  const today=new Date().toISOString().split('T')[0];
+  if(S.g.lastCI===today) return;
+  const yest=new Date(Date.now()-86400000).toISOString().split('T')[0];
+  S.g.streak=S.g.lastCI===yest?S.g.streak+1:1;
+  S.g.lastCI=today;
+  xp(30); if(S.g.streak%7===0) xp(100);
+  checkBadges(); renderGame(); save();
+});
+
+// ─────────────────────────────────────────────────────────────────
+// SALARY + PERIOD
+// ─────────────────────────────────────────────────────────────────
+const salEl=document.getElementById('salaryInput');
+salEl.addEventListener('input',()=>{
+  S.salary=parseFloat(salEl.value)||0; save(); render();
+  if(S.salary>0&&S.g.totalSplits===0){ S.g.totalSplits++; xp(25); checkBadges(); }
+});
+
+document.querySelectorAll('.period-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    S.period=btn.dataset.p; save(); render();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// RESET
+// ─────────────────────────────────────────────────────────────────
+function doReset() {
+  const g=JSON.parse(JSON.stringify(S.g));
+  S=JSON.parse(JSON.stringify(DEF)); S.g=g;
+  salEl.value=S.salary;
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.toggle('on',b.dataset.p===S.period));
+  buildBars(); buildWallet(); render(); save();
+}
+document.getElementById('resetBtn').addEventListener('click',doReset);
+document.getElementById('resetBtn2').addEventListener('click',doReset);
+
+// ─────────────────────────────────────────────────────────────────
+// THEME
+// ─────────────────────────────────────────────────────────────────
+const thBtn=document.getElementById('themeBtn');
+function applyTheme(t) {
+  document.documentElement.dataset.theme=t;
+  thBtn.textContent=t==='dark'?'☀️ Light':'🌙 Dark';
+  localStorage.setItem('ia-theme',t);
+}
+thBtn.addEventListener('click',()=>applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark'));
+
+// ─────────────────────────────────────────────────────────────────
+// NEWS
+// ─────────────────────────────────────────────────────────────────
+async function loadNews() {
+  try {
+    const r=await fetch('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent('https://feeds.bbci.co.uk/news/business/rss.xml')+'&count=7');
+    const d=await r.json();
+    if(!d.items?.length) throw 0;
+    document.getElementById('newsWrap').innerHTML='<div class="news-list">'+
+      d.items.slice(0,7).map(item=>{
+        const diff=Math.round((Date.now()-new Date(item.pubDate))/60000);
+        const ago=diff<60?diff+'m ago':Math.round(diff/60)+'h ago';
+        return `<a class="n-item" href="${item.link}" target="_blank" rel="noopener noreferrer">
+          <span class="n-title">${item.title}</span>
+          <span class="n-meta"><span class="n-source">BBC Business</span><span>${ago}</span></span>
+        </a>`;
+      }).join('')+'</div>';
+  } catch(e) {
+    document.getElementById('newsWrap').innerHTML='<p style="font-size:12px;color:var(--text-faint);text-align:center;padding:20px 0">Couldn\'t load news.<br>Check connection.</p>';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────
+load();
+applyTheme(localStorage.getItem('ia-theme')||'dark');
+document.querySelectorAll('.period-btn').forEach(b=>b.classList.toggle('on',b.dataset.p===S.period));
+salEl.value=S.salary||'';
+initStreak();
+buildBars(); buildWallet(); buildBadges();
+render(); renderGame(); checkBadges();
+loadNews();
+setInterval(loadNews,10*60*1000);
+</script>
+</body>
+</html>
