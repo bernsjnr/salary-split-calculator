@@ -324,7 +324,7 @@
   <header class="header">
     <div class="header-left">
       <h1>Income Allocator</h1>
-      <p>Week 5 · 7-Bucket Framework</p>
+      <p>Week 5 · 6-Bucket Framework</p>
     </div>
     <div class="header-right">
       <button class="pill" id="themeBtn">☀️ Light</button>
@@ -338,7 +338,7 @@
     <!-- SALARY INPUT -->
     <div class="card">
       <div class="salary-top">
-        <span class="card-label" style="margin:0">Gross Monthly Salary</span>
+        <span class="card-label" style="margin:0">Income (post-pension)</span>
         <div class="period-toggle">
           <button class="period-btn on" data-p="monthly">Monthly</button>
           <button class="period-btn"    data-p="annual">Annual</button>
@@ -348,12 +348,7 @@
         <span class="salary-sym">£</span>
         <input type="number" id="salaryInput" placeholder="3,500" min="0" max="9999999">
       </div>
-      <div class="tax-grid">
-        <div class="tax-item tax-pension">
-          <span class="t-lbl">🏦 Pension (10%)</span>
-          <span class="t-val" id="tPension">£—</span>
-          <span class="t-sub">of gross / mo</span>
-        </div>
+      <div class="tax-grid" style="grid-template-columns:repeat(3,1fr)">
         <div class="tax-item tax-it">
           <span class="t-lbl">📋 Income Tax</span>
           <span class="t-val" id="tIT">£—</span>
@@ -559,14 +554,14 @@ function save() {
 // TAX (simplified UK)
 // ─────────────────────────────────────────────────────────────────
 function tax(grossMo) {
-  if (!grossMo || grossMo<=0) return {pension:0,it:0,ni:0,net:0};
-  const g=grossMo*12, pen=g*.1, tx=g-pen;
+  if (!grossMo || grossMo<=0) return {it:0,ni:0,net:0};
+  const g=grossMo*12;
   const PA=12570,BR=50270,HR=125140;
   let it=0;
-  if(tx>PA){ it+=Math.min(tx-PA,BR-PA)*.2; if(tx>BR){it+=Math.min(tx-BR,HR-BR)*.4; if(tx>HR)it+=(tx-HR)*.45;} }
+  if(g>PA){ it+=Math.min(g-PA,BR-PA)*.2; if(g>BR){it+=Math.min(g-BR,HR-BR)*.4; if(g>HR)it+=(g-HR)*.45;} }
   let ni=0;
-  if(tx>PA){ ni+=Math.min(tx-PA,BR-PA)*.08; if(tx>BR)ni+=(tx-BR)*.02; }
-  return { pension:pen/12, it:it/12, ni:ni/12, net:(tx-it-ni)/12 };
+  if(g>PA){ ni+=Math.min(g-PA,BR-PA)*.08; if(g>BR)ni+=(g-BR)*.02; }
+  return { it:it/12, ni:ni/12, net:(g-it-ni)/12 };
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -628,7 +623,6 @@ function render() {
   const t=tax(mo); const net=t.net;
 
   // Tax row
-  document.getElementById('tPension').textContent=gross?gbp(t.pension):'£—';
   document.getElementById('tIT').textContent=gross?gbp(t.it):'£—';
   document.getElementById('tNI').textContent=gross?gbp(t.ni):'£—';
   document.getElementById('tNet').textContent=gross?gbp(net):'£—';
@@ -829,22 +823,46 @@ thBtn.addEventListener('click',()=>applyTheme(document.documentElement.dataset.t
 // ─────────────────────────────────────────────────────────────────
 // NEWS
 // ─────────────────────────────────────────────────────────────────
+const NEWS_SOURCES = [
+  { name:'MoneySavingExpert', url:'https://www.moneysavingexpert.com/feed/' },
+  { name:'Humble Penny',      url:'https://humblepenny.com/feed/' },
+  { name:'Be Clever With Cash', url:'https://becleverwithyourcash.com/feed/' },
+];
+
+async function fetchFeed(source) {
+  const proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(source.url);
+  const res = await fetch(proxy, { signal: AbortSignal.timeout(6000) });
+  const json = await res.json();
+  const doc = new DOMParser().parseFromString(json.contents, 'text/xml');
+  return Array.from(doc.querySelectorAll('item')).slice(0, 3).map(item => ({
+    title:  item.querySelector('title')?.textContent?.trim() || '',
+    link:   item.querySelector('link')?.textContent?.trim() || '#',
+    date:   item.querySelector('pubDate')?.textContent || '',
+    source: source.name,
+  }));
+}
+
 async function loadNews() {
   try {
-    const r=await fetch('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent('https://feeds.bbci.co.uk/news/business/rss.xml')+'&count=7');
-    const d=await r.json();
-    if(!d.items?.length) throw 0;
-    document.getElementById('newsWrap').innerHTML='<div class="news-list">'+
-      d.items.slice(0,7).map(item=>{
-        const diff=Math.round((Date.now()-new Date(item.pubDate))/60000);
-        const ago=diff<60?diff+'m ago':Math.round(diff/60)+'h ago';
+    const results = await Promise.allSettled(NEWS_SOURCES.map(fetchFeed));
+    const items = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
+    if (!items.length) throw 0;
+
+    // Sort by date descending
+    items.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+    document.getElementById('newsWrap').innerHTML = '<div class="news-list">' +
+      items.slice(0, 8).map(item => {
+        const diff = Math.round((Date.now() - new Date(item.date)) / 60000);
+        const ago  = isNaN(diff) ? '' : diff < 60 ? diff + 'm ago' : Math.round(diff/60) + 'h ago';
         return `<a class="n-item" href="${item.link}" target="_blank" rel="noopener noreferrer">
           <span class="n-title">${item.title}</span>
-          <span class="n-meta"><span class="n-source">BBC Business</span><span>${ago}</span></span>
+          <span class="n-meta"><span class="n-source">${item.source}</span>${ago ? '<span>'+ago+'</span>' : ''}</span>
         </a>`;
-      }).join('')+'</div>';
+      }).join('') + '</div>';
   } catch(e) {
-    document.getElementById('newsWrap').innerHTML='<p style="font-size:12px;color:var(--text-faint);text-align:center;padding:20px 0">Couldn\'t load news.<br>Check connection.</p>';
+    document.getElementById('newsWrap').innerHTML =
+      '<p style="font-size:12px;color:var(--text-faint);text-align:center;padding:20px 0">Couldn\'t load news.<br>Check connection.</p>';
   }
 }
 
