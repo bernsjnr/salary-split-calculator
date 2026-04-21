@@ -295,6 +295,42 @@
     @keyframes np { 0%{transform:scale(1);} 45%{transform:scale(1.14);} 100%{transform:scale(1);} }
     .np { animation: np .2s cubic-bezier(.16,1,.3,1); }
 
+    /* ── HISTORY ─────────────────────────────────────────────────── */
+    .hist-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+    .hist-count  { font-size:11px; font-weight:600; color:var(--text-faint); }
+
+    .hist-empty  { font-size:12px; color:var(--text-faint); text-align:center; padding:24px 0; }
+
+    .hist-list   { display:flex; flex-direction:column; gap:10px; }
+
+    .hist-item {
+      display:grid; grid-template-columns:auto 1fr auto;
+      align-items:center; gap:12px;
+      padding:12px 14px; border-radius:13px;
+      background:var(--surface-2); border:1px solid var(--border);
+      transition:border-color .18s;
+    }
+    .hist-item:hover { border-color:rgba(255,255,255,.18); }
+
+    .hist-date-col { display:flex; flex-direction:column; gap:2px; min-width:72px; }
+    .hist-date     { font-size:13px; font-weight:700; }
+    .hist-time     { font-size:10px; color:var(--text-faint); }
+
+    .hist-mid { display:flex; flex-direction:column; gap:5px; min-width:0; }
+    .hist-salary { font-size:12px; font-weight:700; color:var(--c-needs); }
+    .hist-bar-strip { display:flex; height:5px; border-radius:99px; overflow:hidden; gap:1px; }
+    .hist-seg { height:100%; transition:width .3s; }
+
+    .hist-actions { display:flex; gap:6px; }
+    .hist-btn {
+      padding:5px 11px; border-radius:99px; border:1px solid var(--border);
+      background:transparent; color:var(--text-muted); font-family:var(--font);
+      font-size:11px; font-weight:600; cursor:pointer; transition:all .18s; white-space:nowrap;
+    }
+    .hist-btn:hover           { background:var(--surface); color:var(--text); }
+    .hist-btn.restore:hover   { border-color:var(--c-needs); color:var(--c-needs); }
+    .hist-btn.del:hover       { border-color:var(--c-debt);  color:var(--c-debt);  }
+
     /* ── RESPONSIVE ──────────────────────────────────────────────── */
     @media (max-width: 920px) {
       .page { grid-template-columns: 1fr; gap: 0; }
@@ -457,12 +493,23 @@
 
     <div class="actions">
       <button class="pill" id="resetBtn2">↺ Reset to Defaults</button>
+      <button class="pill on" id="saveBtn">💾 Save Snapshot</button>
     </div>
 
   </div><!-- /main-col -->
 
   <!-- SIDEBAR -->
   <div class="side-col">
+
+    <!-- HISTORY -->
+    <div class="card">
+      <div class="hist-header">
+        <span class="card-label" style="margin:0">📁 Split History</span>
+        <span class="hist-count" id="histCount">0 saves</span>
+      </div>
+      <div id="histList"><p class="hist-empty">No snapshots yet.<br>Hit "Save Snapshot" to record your split.</p></div>
+    </div>
+
     <div class="card news-card">
       <div class="news-top">
         <span class="card-label" style="margin:0">Finance News</span>
@@ -825,6 +872,89 @@ async function loadNews() {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// HISTORY
+// ─────────────────────────────────────────────────────────────────
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem('ia-history-v1') || '[]'); } catch(e) { return []; }
+}
+function saveHistory(h) {
+  try { localStorage.setItem('ia-history-v1', JSON.stringify(h)); } catch(e) {}
+}
+
+function saveSnapshot() {
+  const gross = parseFloat(document.getElementById('salaryInput').value) || 0;
+  if (!gross) { toast('⚠️ Enter your take-home first'); return; }
+  const h = loadHistory();
+  const net = S.period === 'annual' ? gross / 12 : gross;
+  h.unshift({
+    id:     Date.now(),
+    date:   new Date().toISOString(),
+    salary: gross,
+    period: S.period,
+    net:    net,
+    splits: { ...S.sp },
+  });
+  if (h.length > 24) h.length = 24; // keep max 24 snapshots
+  saveHistory(h);
+  renderHistory();
+  toast('💾 Snapshot saved!');
+  xp(10);
+}
+
+function restoreSnapshot(snap) {
+  S.sp = { ...snap.splits };
+  S.salary = snap.salary;
+  S.period = snap.period;
+  document.getElementById('salaryInput').value = snap.salary;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('on', b.dataset.p === snap.period));
+  buildBars(); buildWallet(); render(); save();
+  toast('✅ Snapshot restored');
+}
+
+function deleteSnapshot(id) {
+  const h = loadHistory().filter(s => s.id !== id);
+  saveHistory(h);
+  renderHistory();
+}
+
+function renderHistory() {
+  const h = loadHistory();
+  const el = document.getElementById('histList');
+  const countEl = document.getElementById('histCount');
+  countEl.textContent = h.length + (h.length === 1 ? ' save' : ' saves');
+
+  if (!h.length) {
+    el.innerHTML = '<p class="hist-empty">No snapshots yet.<br>Hit "Save Snapshot" to record your split.</p>';
+    return;
+  }
+
+  el.innerHTML = '<div class="hist-list">' + h.map(snap => {
+    const d    = new Date(snap.date);
+    const date = d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+    const time = d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    const segs = CATS.map(c =>
+      `<div class="hist-seg" style="width:${snap.splits[c.id]}%;background:${c.color}"></div>`
+    ).join('');
+    return `<div class="hist-item">
+      <div class="hist-date-col">
+        <span class="hist-date">${date}</span>
+        <span class="hist-time">${time}</span>
+      </div>
+      <div class="hist-mid">
+        <span class="hist-salary">£${Math.round(snap.net).toLocaleString('en-GB')} / mo</span>
+        <div class="hist-bar-strip">${segs}</div>
+      </div>
+      <div class="hist-actions">
+        <button class="hist-btn restore" onclick="restoreSnapshot(${JSON.stringify(snap).replace(/"/g,'&quot;')})">Restore</button>
+        <button class="hist-btn del"     onclick="deleteSnapshot(${snap.id})">✕</button>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+document.getElementById('saveBtn').addEventListener('click', saveSnapshot);
+
+// ─────────────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────────────
 load();
@@ -833,7 +963,7 @@ document.querySelectorAll('.period-btn').forEach(b=>b.classList.toggle('on',b.da
 salEl.value=S.salary||'';
 initStreak();
 buildBars(); buildWallet(); buildBadges();
-render(); renderGame(); checkBadges();
+render(); renderGame(); checkBadges(); renderHistory();
 loadNews();
 setInterval(loadNews,10*60*1000);
 </script>
