@@ -295,6 +295,24 @@
     @keyframes np { 0%{transform:scale(1);} 45%{transform:scale(1.14);} 100%{transform:scale(1);} }
     .np { animation: np .2s cubic-bezier(.16,1,.3,1); }
 
+    /* ── MARKET WIDGET ──────────────────────────────────────────── */
+    .mkt-list  { display:flex; flex-direction:column; }
+    .mkt-item  {
+      display:grid; grid-template-columns:auto 1fr auto auto;
+      align-items:center; gap:10px; padding:10px 0;
+      border-bottom:1px solid var(--border);
+    }
+    .mkt-item:last-child { border-bottom:none; }
+    .mkt-icon  { font-size:18px; line-height:1; }
+    .mkt-name  { display:flex; flex-direction:column; gap:1px; }
+    .mkt-sym   { font-size:13px; font-weight:700; }
+    .mkt-full  { font-size:10px; color:var(--text-faint); }
+    .mkt-price { font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; text-align:right; }
+    .mkt-chg   { font-size:11px; font-weight:700; padding:3px 8px; border-radius:99px; text-align:right; white-space:nowrap; }
+    .mkt-chg.up   { background:rgba(94,158,46,.15); color:#6BBF3A; }
+    .mkt-chg.down { background:rgba(232,93,74,.15);  color:var(--c-debt); }
+    .mkt-skeleton { display:flex; flex-direction:column; gap:12px; }
+
     /* ── HISTORY ─────────────────────────────────────────────────── */
     .hist-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
     .hist-count  { font-size:11px; font-weight:600; color:var(--text-faint); }
@@ -500,6 +518,22 @@
 
   <!-- SIDEBAR -->
   <div class="side-col">
+
+    <!-- MARKET -->
+    <div class="card">
+      <div class="hist-header">
+        <span class="card-label" style="margin:0">📈 Market</span>
+        <span class="news-live"></span>
+      </div>
+      <div id="mktWrap">
+        <div class="mkt-skeleton">
+          <div class="skel-line" style="width:100%"></div>
+          <div class="skel-line" style="width:100%"></div>
+          <div class="skel-line" style="width:100%"></div>
+          <div class="skel-line" style="width:100%"></div>
+        </div>
+      </div>
+    </div>
 
     <!-- HISTORY -->
     <div class="card">
@@ -835,26 +869,25 @@ thBtn.addEventListener('click',()=>applyTheme(document.documentElement.dataset.t
 // NEWS
 // ─────────────────────────────────────────────────────────────────
 async function loadNews() {
+  const toItem = (source) => (item) => ({
+    title:  item.title,
+    link:   item.link,
+    date:   item.pubDate,
+    source,
+  });
   try {
-    const [moneyRes, bizRes] = await Promise.all([
-      fetch('https://content.guardianapis.com/money?show-fields=trailText&page-size=5&api-key=test'),
-      fetch('https://content.guardianapis.com/business?show-fields=trailText&page-size=4&api-key=test'),
+    const base = 'https://api.rss2json.com/v1/api.json?rss_url=';
+    const [r1, r2] = await Promise.all([
+      fetch(base + encodeURIComponent('https://feeds.bbci.co.uk/news/business/rss.xml')),
+      fetch(base + encodeURIComponent('https://www.theguardian.com/money/rss')),
     ]);
-    const [moneyData, bizData] = await Promise.all([moneyRes.json(), bizRes.json()]);
-
-    const toItem = (section) => (r) => ({
-      title: r.webTitle,
-      link:  r.webUrl,
-      date:  r.webPublicationDate,
-      source: section,
-    });
+    const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
+    if (d1.status !== 'ok' && d2.status !== 'ok') throw new Error('both feeds failed');
 
     const items = [
-      ...(moneyData.response?.results || []).map(toItem('The Guardian · Money')),
-      ...(bizData.response?.results   || []).map(toItem('The Guardian · Business')),
+      ...(d1.items || []).slice(0,5).map(toItem('BBC Business')),
+      ...(d2.items || []).slice(0,4).map(toItem('The Guardian · Money')),
     ].sort((a,b) => new Date(b.date) - new Date(a.date));
-
-    if (!items.length) throw 0;
 
     document.getElementById('newsWrap').innerHTML = '<div class="news-list">' +
       items.map(item => {
@@ -868,6 +901,54 @@ async function loadNews() {
   } catch(e) {
     document.getElementById('newsWrap').innerHTML =
       '<p style="font-size:12px;color:var(--text-faint);text-align:center;padding:20px 0">Couldn\'t load news.<br>Check connection.</p>';
+  }
+}
+
+async function loadMarket() {
+  const COINS = [
+    { id:'bitcoin',  sym:'BTC', icon:'₿',  name:'Bitcoin'  },
+    { id:'ethereum', sym:'ETH', icon:'Ξ',  name:'Ethereum' },
+    { id:'ripple',   sym:'XRP', icon:'✕',  name:'XRP'      },
+    { id:'solana',   sym:'SOL', icon:'◎',  name:'Solana'   },
+  ];
+  try {
+    const ids = COINS.map(c=>c.id).join(',');
+    const [cryptoRes, fxRes] = await Promise.all([
+      fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=gbp&include_24hr_change=true`),
+      fetch('https://open.er-api.com/v6/latest/GBP'),
+    ]);
+    const [crypto, fx] = await Promise.all([cryptoRes.json(), fxRes.json()]);
+
+    const usd = fx.rates?.USD ? (1 / fx.rates.USD).toFixed(4) : null;
+
+    const coinRows = COINS.map(c => {
+      const d = crypto[c.id];
+      if (!d) return '';
+      const price = d.gbp >= 1000
+        ? '£' + Math.round(d.gbp).toLocaleString('en-GB')
+        : '£' + d.gbp.toFixed(d.gbp >= 1 ? 2 : 4);
+      const chg   = d.gbp_24h_change?.toFixed(2);
+      const up    = chg >= 0;
+      return `<div class="mkt-item">
+        <span class="mkt-icon">${c.icon}</span>
+        <div class="mkt-name"><span class="mkt-sym">${c.sym}</span><span class="mkt-full">${c.name}</span></div>
+        <span class="mkt-price">${price}</span>
+        <span class="mkt-chg ${up?'up':'down'}">${up?'▲':'▼'} ${Math.abs(chg)}%</span>
+      </div>`;
+    }).join('');
+
+    const fxRow = usd ? `<div class="mkt-item">
+      <span class="mkt-icon">💷</span>
+      <div class="mkt-name"><span class="mkt-sym">GBP/USD</span><span class="mkt-full">Exchange Rate</span></div>
+      <span class="mkt-price">$${(1/fx.rates.USD).toFixed(4)}</span>
+      <span class="mkt-chg up" style="visibility:hidden">—</span>
+    </div>` : '';
+
+    document.getElementById('mktWrap').innerHTML =
+      '<div class="mkt-list">' + coinRows + fxRow + '</div>';
+  } catch(e) {
+    document.getElementById('mktWrap').innerHTML =
+      '<p style="font-size:12px;color:var(--text-faint);text-align:center;padding:20px 0">Couldn\'t load market data.</p>';
   }
 }
 
@@ -965,7 +1046,9 @@ initStreak();
 buildBars(); buildWallet(); buildBadges();
 render(); renderGame(); checkBadges(); renderHistory();
 loadNews();
-setInterval(loadNews,10*60*1000);
+loadMarket();
+setInterval(loadNews,  10*60*1000);
+setInterval(loadMarket, 2*60*1000);
 </script>
 </body>
 </html>
